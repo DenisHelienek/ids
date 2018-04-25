@@ -1,6 +1,7 @@
--- autori: Tomas Kazik xkazik03, Denis Helienek xhelie00
 -- IDS, projekt 4
+-- autori: Tomas Kazik xkazik03, Denis Helienek xhelie00
 
+---------VYMAZANIE TABULIEK A SEKVENCII------------
 DROP TABLE HOST CASCADE CONSTRAINTS;
 DROP TABLE OBJEDNAVKA CASCADE CONSTRAINTS;
 DROP TABLE REZERVACE CASCADE CONSTRAINTS;
@@ -13,9 +14,12 @@ DROP SEQUENCE SLUZBA_ID;
 DROP SEQUENCE VYKONANA_SLUZBA_ID;
 DROP SEQUENCE POKOJ_ID;
 DROP SEQUENCE REZERVACE_ID;
+DROP SEQUENCE POCET_HOSTOV;
+DROP SEQUENCE KONTROLA_MENA;
+DROP SEQUENCE KONTROLA_CISLA;
+DROP SEQUENCE KONTROLA_PRIEZVISKA;
 
-
-
+-------VYTVORENIE TABULIEK---------------
 CREATE TABLE HOST (
 	id NUMBER NOT NULL,
 	jmeno VARCHAR(20) NOT NULL,
@@ -70,6 +74,98 @@ CREATE TABLE REZERVACE (
 	CONSTRAINT FK_rezervace_objednavka_id FOREIGN KEY(objednavka_id) REFERENCES OBJEDNAVKA(vs),
 	CONSTRAINT FK_rezervace_pokoj_id FOREIGN KEY(pokoj_id) REFERENCES POKOJ(id)
 );
+
+CREATE TABLE VYKONANA_SLUZBA (
+	id NUMBER NOT NULL,
+	sluzba_id NUMBER NOT NULL,
+	objednavka_id VARCHAR(10) NOT NULL,
+	CONSTRAINT FK_vyksluzba_sluzba_id FOREIGN KEY(sluzba_id) REFERENCES SLUZBA(id),
+	CONSTRAINT FK_vyksluzba_objednavka_id FOREIGN KEY(objednavka_id) REFERENCES OBJEDNAVKA(vs),
+	CONSTRAINT vykonana_sluzba_id_primary PRIMARY KEY (id)
+);
+
+-------------TRIGGERY-----------
+CREATE SEQUENCE HOST_ID INCREMENT BY 1 START WITH 1;
+CREATE SEQUENCE REZERVACE_ID INCREMENT BY 1 START WITH 1;
+CREATE SEQUENCE SLUZBA_ID INCREMENT BY 1 START WITH 1;
+CREATE SEQUENCE VYKONANA_SLUZBA_ID INCREMENT BY 1 START WITH 1;
+CREATE SEQUENCE POKOJ_ID INCREMENT BY 1 START WITH 1;
+CREATE SEQUENCE POCET_HOSTOV;
+CREATE SEQUENCE KONTROLA_MENA;
+CREATE SEQUENCE KONTROLA_CISLA;
+CREATE SEQUENCE KONTROLA_PRIEZVISKA;
+
+CREATE OR REPLACE TRIGGER vs_trigger
+	BEFORE INSERT ON OBJEDNAVKA
+	FOR EACH ROW
+BEGIN
+	:NEW.vs := TO_CHAR(:NEW.vytvoreni_objednavky,'yymmddHH24MI');
+END;
+/
+
+CREATE OR REPLACE TRIGGER konecna_cena_trigger
+	AFTER INSERT OR DELETE ON VYKONANA_SLUZBA
+	FOR EACH ROW
+BEGIN
+  CASE
+    WHEN INSERTING THEN
+		konecna_cena_insert(:NEW.sluzba_id,:NEW.objednavka_id);
+    WHEN DELETING THEN
+		konecna_cena_delete(:OLD.sluzba_id,:OLD.objednavka_id);
+  END CASE;
+END;
+/
+
+CREATE OR REPLACE TRIGGER pocet_hostov_trigger
+    BEFORE INSERT ON HOST
+    FOR EACH ROW
+BEGIN
+    :NEW.id := POCET_HOSTOV.NEXTVAL;
+END POCET_HOSTOV;
+/
+
+CREATE OR REPLACE TRIGGER kontrola_mena_trigger
+    BEFORE INSERT OR UPDATE OF jmeno ON HOST
+    FOR EACH ROW
+DECLARE
+    j HOST.jmeno%TYPE;
+BEGIN
+    j := :NEW.jmeno;
+    IF (LENGTH(j) < 1) THEN
+        Raise_Application_Error (-9999, 'Prilis kratke meno');
+    END IF;
+END KONTROLA_MENA;
+/
+
+CREATE OR REPLACE TRIGGER kontrola_priezviska_trigger
+    BEFORE INSERT OR UPDATE OF prijmeni ON HOST
+    FOR EACH ROW
+DECLARE
+    p HOST.prijmeni%TYPE;
+BEGIN
+    p := :NEW.prijmeni;
+    IF (LENGTH(p) < 1) THEN
+        Raise_Application_Error (-9998, 'Prilis kratke priezvisko');
+    END IF;
+END KONTROLA_PRIEZVISKA;
+/
+
+CREATE OR REPLACE TRIGGER kontrola_cisla_trigger
+    BEFORE INSERT OR UPDATE OF telefon ON HOST
+    FOR EACH ROW
+DECLARE
+    predvolba NUMBER;
+    t HOST.telefon%TYPE;
+BEGIN
+    t := :NEW.telefon;
+    predvolba := SUBSTR(t, 1, 3);
+    IF (predvolba != 421) THEN
+        Raise_Application_Error (-9997, 'Zla predvolba');
+    END IF;
+END KONTROLA_CISLA;
+/
+
+
 SET serveroutput ON;
 CREATE OR REPLACE PROCEDURE poc_REZ_POK_percentualne (id_pokoj NUMBER) AS cursor all_rez IS SELECT * FROM REZERVACE;
 nas_pokoj NUMBER;
@@ -95,21 +191,8 @@ BEGIN
 			Raise_Application_Error(-20010, 'Other error!');
 END;
 /
-CREATE TABLE VYKONANA_SLUZBA (
-	id NUMBER NOT NULL,
-	sluzba_id NUMBER NOT NULL,
-	objednavka_id VARCHAR(10) NOT NULL,
-	CONSTRAINT FK_vyksluzba_sluzba_id FOREIGN KEY(sluzba_id) REFERENCES SLUZBA(id),
-	CONSTRAINT FK_vyksluzba_objednavka_id FOREIGN KEY(objednavka_id) REFERENCES OBJEDNAVKA(vs),
-	CONSTRAINT vykonana_sluzba_id_primary PRIMARY KEY (id)
-);
 
-CREATE SEQUENCE HOST_ID INCREMENT BY 1 START WITH 1;
-CREATE SEQUENCE REZERVACE_ID INCREMENT BY 1 START WITH 1;
-CREATE SEQUENCE SLUZBA_ID INCREMENT BY 1 START WITH 1;
-CREATE SEQUENCE VYKONANA_SLUZBA_ID INCREMENT BY 1 START WITH 1;
-CREATE SEQUENCE POKOJ_ID INCREMENT BY 1 START WITH 1;
-
+-----
 
 
 
@@ -134,26 +217,6 @@ END;
 /
 
 
-CREATE OR REPLACE TRIGGER vs_trigger
-	BEFORE INSERT ON OBJEDNAVKA
-	FOR EACH ROW
-BEGIN
-	:NEW.vs := TO_CHAR(:NEW.vytvoreni_objednavky,'yymmddHH24MI');
-END;
-/
-
-CREATE OR REPLACE TRIGGER konecna_cena_trigger
-	AFTER INSERT OR DELETE ON VYKONANA_SLUZBA
-	FOR EACH ROW
-BEGIN
-  CASE
-    WHEN INSERTING THEN
-		konecna_cena_insert(:NEW.sluzba_id,:NEW.objednavka_id);
-    WHEN DELETING THEN
-		konecna_cena_delete(:OLD.sluzba_id,:OLD.objednavka_id);
-  END CASE;
-END;
-/
 
 
 
@@ -171,11 +234,11 @@ INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 3, 1500, 250, 75, 'Manzelska postel, 
 INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 5, 5000, 850, 235, 'Apartma, manzelska postel, 3 oddelene, vana, sprcha, kuchyne, televize, klimatizace' );
 
 
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Pavel', 'Koutný', TO_DATE('30-03-1987', 'dd-mm-yyyy'), 391758340, 'pavel@koutny.cz', 'Kozí 29 Ostrava 47869');
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Petr', 'Filip', TO_DATE('05-03-1987', 'dd-mm-yyyy'), 381284130, 'filip@ovci.cz','Ovčí 104 Brno 60200');
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Oldřich', 'Bejr', TO_DATE('30-03-1967', 'dd-mm-yyyy'), 395012845, 'oldrich@seznam.cz', 'Havraní 90 Jakubov 39475');
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Kristýna', 'Kočí', TO_DATE('08-01-1987', 'dd-mm-yyyy'), 891048723, 'vgfddf@centrum.cz', 'Václavské náměstí 48 Rosice 29481');
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Olga', 'Vráblová', TO_DATE('30-03-1954', 'dd-mm-yyyy'), 478365971, 'vrablova@seznam.cz', 'Masarykova 394 Náměšť nad Oslavou 84723');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Pavel', 'Koutný', TO_DATE('30-03-1987', 'dd-mm-yyyy'), 421758340, 'pavel@koutny.cz', 'Kozí 29 Ostrava 47869');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Petr', 'Filip', TO_DATE('05-03-1987', 'dd-mm-yyyy'), 421284130, 'filip@ovci.cz','Ovčí 104 Brno 60200');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Oldřich', 'Bejr', TO_DATE('30-03-1967', 'dd-mm-yyyy'), 421012845, 'oldrich@seznam.cz', 'Havraní 90 Jakubov 39475');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Kristýna', 'Kočí', TO_DATE('08-01-1987', 'dd-mm-yyyy'), 421048723, 'vgfddf@centrum.cz', 'Václavské náměstí 48 Rosice 29481');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Olga', 'Vráblová', TO_DATE('30-03-1954', 'dd-mm-yyyy'), 421365971, 'vrablova@seznam.cz', 'Masarykova 394 Náměšť nad Oslavou 84723');
 
 
 
@@ -212,26 +275,27 @@ SELECT * FROM VYKONANA_SLUZBA;
 
 
 -- ------------------- kod z 3 casti projektu -----------------
-SELECT * FROM OBJEDNAVKA LEFT JOIN HOST ON OBJEDNAVKA.host_id = HOST.id WHERE zaplaceno IS NULL;
---vráti hos»ov a objednávku, ktorý eąte nezaplatili objednávku
+SELECT * FROM OBJEDNAVKA LEFT JOIN HOST ON OBJEDNAVKA.host_id = HOST.id WHERE OBJEDNAVKA.zaplaceno IS NULL;
+--vráti hosťov a objednávku, ktorý ešte nezaplatili objednávku
 
-SELECT rezervace_od, rezervace_do, nastoueni, odhlaseni, pocet_osob, kapacita, popis FROM REZERVACE INNER JOIN POKOJ  ON REZERVACE.pokoj_id =POKOJ.id;
+SELECT REZERVACE.rezervace_od, REZERVACE.rezervace_do, REZERVACE.nastoueni, REZERVACE.odhlaseni, REZERVACE.pocet_osob, POKOJ.kapacita, POKOJ.popis FROM REZERVACE INNER JOIN POKOJ ON REZERVACE.pokoj_id = POKOJ.id;
 --vrati info ku rezervacii, aky typ izba, kolko osob atd
 
-SELECT * FROM VYKONANA_SLUZBA  LEFT JOIN SLUZBA ON VYKONANA_SLUZBA.sluzba_id = SLUZBA.id LEFT JOIN OBJEDNAVKA ON VYKONANA_SLUZBA.objednavka_id = OBJEDNAVKA.vs;
---vráti ku objednávka vykonané sluľby
+SELECT * FROM VYKONANA_SLUZBA LEFT JOIN SLUZBA ON VYKONANA_SLUZBA.sluzba_id = SLUZBA.id LEFT JOIN OBJEDNAVKA ON VYKONANA_SLUZBA.objednavka_id = OBJEDNAVKA.vs;
+--vráti ku objednávke vykonané služby
 
-SELECT AVG(pocet_osob) FROM REZERVACE GROUP BY pokoj_id;
---vrati priemerny pocet sob pre izby
+SELECT AVG(pocet_osob) as priemerny_pocet_osob FROM REZERVACE GROUP BY pokoj_id;
+--vrati priemerny pocet osob pre izby
 
-SELECT SUM(konecna_cena) FROM OBJEDNAVKA GROUP BY vytvoreni_objednavky;
---suma objednavok za kazdy mesiac
+SELECT sluzba_id, COUNT(objednavka_id) as pocet_objednani FROM VYKONANA_SLUZBA GROUP BY sluzba_id;
+--pocet objednani danej sluzby
 
 SELECT * FROM REZERVACE WHERE EXISTS (SELECT * FROM POKOJ WHERE REZERVACE.pokoj_id = POKOJ.id);
---vrati rezervacie
+-- test na neprazdnost tabulky s korelovanym poddotazom, vypise rezervacky
 
 SELECT * FROM OBJEDNAVKA WHERE vs IN (SELECT objednavka_id FROM VYKONANA_SLUZBA);
---objednávky, ktoré si objednali doplnkove sluľby
+--objednávky, ktoré si objednali doplnkove služby
+
 GRANT EXECUTE ON konecna_cena_insert TO XHELIE00;
 GRANT EXECUTE ON konecna_cena_delete TO XHELIE00;
 GRANT ALL ON HOST TO XHELIE00;
@@ -251,6 +315,7 @@ GRANT ALL ON REZERVACE TO XKAZIK03;
 GRANT ALL ON VYKONANA_SLUZBA TO XKAZIK03;
 
 SELECT * FROM REZERVACE;
+SELECT * FROM HOST;
 
 BEGIN
 	POC_REZ_POK_PERCENTUALNE(2);
