@@ -165,6 +165,7 @@ BEGIN
 END KONTROLA_CISLA;
 /
 
+-------------PROCEDURY----------------
 
 SET serveroutput ON;
 CREATE OR REPLACE PROCEDURE poc_REZ_POK_percentualne (id_pokoj NUMBER) AS cursor all_rez IS SELECT * FROM REZERVACE;
@@ -192,9 +193,6 @@ BEGIN
 END;
 /
 
------
-
-
 
 CREATE OR REPLACE PROCEDURE konecna_cena_delete (sluzbaID NUMBER, objVS VARCHAR) AS
 SCena SLUZBA.cena%TYPE;
@@ -216,31 +214,22 @@ BEGIN
 END;
 /
 
-
-
-
-
-
-
+-------INSERTY-----------
 INSERT INTO SLUZBA VALUES(SLUZBA_ID.NEXTVAL, 'Uklid navic', '', 650);
 INSERT INTO SLUZBA VALUES(SLUZBA_ID.NEXTVAL, 'Donaska zmrzliny', 'Donaska 2 porci zmrzliny v dezertnich miskach dle aktualni nabidky', 150);
 INSERT INTO SLUZBA VALUES(SLUZBA_ID.NEXTVAL, 'Vymena rucniku navic', '', 50);
 INSERT INTO SLUZBA VALUES(SLUZBA_ID.NEXTVAL, 'Snidane v restauracnim salonku', 'Snidane pro 2 osoby', 700);
-
 
 INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 2, 1200, 200, 50, 'Manzelska postel, sprcha, televize, klimatizace' );
 INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 2, 1200, 200, 50, 'Manzelska postel, sprcha, televize, klimatizace' );
 INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 3, 1500, 250, 75, 'Manzelska postel, pristylka, vana, televize, klimatizace' );
 INSERT INTO POKOJ VALUES(POKOJ_ID.NEXTVAL, 5, 5000, 850, 235, 'Apartma, manzelska postel, 3 oddelene, vana, sprcha, kuchyne, televize, klimatizace' );
 
-
 INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Pavel', 'Koutný', TO_DATE('30-03-1987', 'dd-mm-yyyy'), 421758340, 'pavel@koutny.cz', 'Kozí 29 Ostrava 47869');
 INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Petr', 'Filip', TO_DATE('05-03-1987', 'dd-mm-yyyy'), 421284130, 'filip@ovci.cz','Ovčí 104 Brno 60200');
 INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Oldřich', 'Bejr', TO_DATE('30-03-1967', 'dd-mm-yyyy'), 421012845, 'oldrich@seznam.cz', 'Havraní 90 Jakubov 39475');
-INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Kristýna', 'Kočí', TO_DATE('08-01-1987', 'dd-mm-yyyy'), 421048723, 'vgfddf@centrum.cz', 'Václavské náměstí 48 Rosice 29481');
+INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Kristýna', 'Kocarova', TO_DATE('08-01-1987', 'dd-mm-yyyy'), 421048723, 'vgfddf@centrum.cz', 'Václavské náměstí 48 Rosice 29481');
 INSERT INTO HOST VALUES( HOST_ID.NEXTVAL, 'Olga', 'Vráblová', TO_DATE('30-03-1954', 'dd-mm-yyyy'), 421365971, 'vrablova@seznam.cz', 'Masarykova 394 Náměšť nad Oslavou 84723');
-
-
 
 INSERT INTO OBJEDNAVKA VALUES('', TO_DATE('05-03-2017 13:09', 'dd-mm-yyyy HH24:MI'), TO_DATE('06-03-2017 10:15', 'dd-mm-yyyy HH24:MI'), 'Standa', 0, 3);
 INSERT INTO OBJEDNAVKA VALUES('', TO_DATE('05-03-2017 10:12', 'dd-mm-yyyy HH24:MI'), NULL, NULL, NULL, 1);
@@ -256,11 +245,12 @@ INSERT INTO REZERVACE VALUES(REZERVACE_ID.NEXTVAL, '1703021701', 4, TO_DATE('02-
 
 
 INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 1, '1702260617');
+INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 1, '1702260617');
 INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 2, '1702260617');
 INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 1, '1702260617');
 INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 3, '1703021701');
 
-
+---------SELECTY-----------
 
 -- predvedeni seznamu objednavek - jsou vyplneny variabilni symboly a zaroven i secteny ceny za sluzby v "konecna_cena"
 -- konecna cena neobsahuje poplatek za pobyt, ktery by byl dopocitan pri placeni pobytu
@@ -271,10 +261,6 @@ DELETE FROM VYKONANA_SLUZBA WHERE id = 2;
 SELECT * FROM OBJEDNAVKA;
 SELECT * FROM VYKONANA_SLUZBA;
 
-
-
-
--- ------------------- kod z 3 casti projektu -----------------
 SELECT * FROM OBJEDNAVKA LEFT JOIN HOST ON OBJEDNAVKA.host_id = HOST.id WHERE OBJEDNAVKA.zaplaceno IS NULL;
 --vráti hosťov a objednávku, ktorý ešte nezaplatili objednávku
 
@@ -296,6 +282,8 @@ SELECT * FROM REZERVACE WHERE EXISTS (SELECT * FROM POKOJ WHERE REZERVACE.pokoj_
 SELECT * FROM OBJEDNAVKA WHERE vs IN (SELECT objednavka_id FROM VYKONANA_SLUZBA);
 --objednávky, ktoré si objednali doplnkove služby
 
+------PRAVA-------
+
 GRANT EXECUTE ON konecna_cena_insert TO XHELIE00;
 GRANT EXECUTE ON konecna_cena_delete TO XHELIE00;
 GRANT ALL ON HOST TO XHELIE00;
@@ -314,8 +302,20 @@ GRANT ALL ON OBJEDNAVKA TO XKAZIK03;
 GRANT ALL ON REZERVACE TO XKAZIK03;
 GRANT ALL ON VYKONANA_SLUZBA TO XKAZIK03;
 
-SELECT * FROM REZERVACE;
-SELECT * FROM HOST;
+-------EXPLAIN-------
+EXPLAIN PLAN FOR
+SELECT prijmeni, SUM(konecna_cena)
+FROM HOST NATURAL JOIN OBJEDNAVKA
+GROUP BY prijmeni;
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+CREATE INDEX i ON HOST(prijmeni);
+EXPLAIN PLAN FOR
+SELECT /*+ INDEX HOST i)*/prijmeni, SUM(konecna_cena)
+FROM HOST NATURAL JOIN OBJEDNAVKA
+GROUP BY prijmeni;
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
 
 BEGIN
 	POC_REZ_POK_PERCENTUALNE(2);
