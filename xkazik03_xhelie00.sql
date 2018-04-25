@@ -193,6 +193,23 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE PROCEDURE klientCelkoveZaplatil(idKlient IN NUMBER)
+is
+	cursor curs is select host_id, konecna_cena from OBJEDNAVKA;
+	celkemZaplaceno objednavka.konecna_cena%TYPE;
+	begin
+		celkemZaplaceno := 0;
+		for row in curs loop
+			if (row.host_id = idKlient) then
+				celkemZaplaceno := celkemZaplaceno + row.konecna_cena;
+			end if;
+		end loop;
+		dbms_output.put_line(idKlient || ' utratil celkem ' || celkemZaplaceno);
+		exception
+			when others then
+				raise_application_error(-20010, 'Neocekavana chyba');
+	end;
+/
 
 CREATE OR REPLACE PROCEDURE konecna_cena_delete (sluzbaID NUMBER, objVS VARCHAR) AS
 SCena SLUZBA.cena%TYPE;
@@ -320,3 +337,7 @@ SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
 BEGIN
 	POC_REZ_POK_PERCENTUALNE(2);
 END;
+
+begin
+	klientCelkoveZaplatil(5);
+end;
