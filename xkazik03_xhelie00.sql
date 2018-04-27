@@ -19,6 +19,8 @@ DROP SEQUENCE KONTROLA_MENA;
 DROP SEQUENCE KONTROLA_CISLA;
 DROP SEQUENCE KONTROLA_PRIEZVISKA;
 
+drop materialized view zamestnanecPrijalCelkem;
+
 -------VYTVORENIE TABULIEK---------------
 CREATE TABLE HOST (
 	id NUMBER NOT NULL,
@@ -333,6 +335,20 @@ FROM HOST NATURAL JOIN OBJEDNAVKA
 GROUP BY prijmeni;
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
 
+-------POHLED-------
+create materialized view log on OBJEDNAVKA with primary key,rowid (platbu_prijal, konecna_cena) including new values;
+create materialized view zamestnanecPrijalCelkem
+	cache
+	build immediate
+	refresh fast on commit
+	enable query rewrite
+	as
+		select obj.platbu_prijal, sum(obj.konecna_cena) as PrijalCelkem
+		from OBJEDNAVKA obj
+		group by obj.platbu_prijal;
+
+grant all on zamestnanecPrijalCelkem to XHELIE00;
+grant all on zamestnanecPrijalCelkem to XKAZIK03;
 
 BEGIN
 	POC_REZ_POK_PERCENTUALNE(2);
@@ -341,3 +357,5 @@ END;
 begin
 	klientCelkoveZaplatil(5);
 end;
+
+select * from zamestnanecPrijalCelkem;
