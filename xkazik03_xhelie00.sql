@@ -170,29 +170,23 @@ END KONTROLA_CISLA;
 -------------PROCEDURY----------------
 
 SET serveroutput ON;
-CREATE OR REPLACE PROCEDURE poc_REZ_POK_percentualne (id_pokoj NUMBER) AS cursor all_rez IS SELECT * FROM REZERVACE;
-nas_pokoj NUMBER;
-all_pokoj NUMBER;
-rez all_rez%ROWTYPE;
-BEGIN
-	nas_pokoj := 0;
-	all_pokoj := 0;
-	OPEN all_rez;
-	LOOP
-		fetch all_rez into rez;
-		IF rez.pokoj_id = id_pokoj THEN nas_pokoj := nas_pokoj + 1;
-		END IF;
-		EXIT WHEN all_rez%NOTFOUND;
-		all_pokoj := all_pokoj+1;
-	END LOOP;
-	CLOSE all_rez;
-	dbms_output.put_line('There is '||ROUND(nas_pokoj/all_pokoj * 100, 2)||'% of all reservations for this room.');
-	EXCEPTION
-		WHEN ZERO_DIVIDE THEN
-			dbms_output.put_line('No valid reservations');
-		WHEN OTHERS THEN
-			Raise_Application_Error(-20010, 'Other error!');
-END;
+
+create or replace procedure poc_rez_pok_percentualne(idPokoj IN NUMBER)
+is
+	cursor curs is select * from REZERVACE;
+	hledanyPokoj number;
+	vsechnyPokoje number;
+	begin
+		hledanyPokoj := 0;
+		vsechnyPokoje := 0;
+		for row in curs loop
+			if (row.pokoj_id = idPokoj) then
+				hledanyPokoj := hledanyPokoj + 1;
+			end if;
+			vsechnyPokoje := vsechnyPokoje + 1;
+		end loop;
+		dbms_output.put_line('Dany pokoj vlastni '||ROUND(hledanyPokoj / vsechnyPokoje * 100, 2)||'% vsech rezervaci.');
+	end;
 /
 
 CREATE OR REPLACE PROCEDURE klientCelkoveZaplatil(idKlient IN NUMBER)
@@ -273,32 +267,32 @@ INSERT INTO VYKONANA_SLUZBA VALUES(VYKONANA_SLUZBA_ID.NEXTVAL, 3, '1703021701');
 
 -- predvedeni seznamu objednavek - jsou vyplneny variabilni symboly a zaroven i secteny ceny za sluzby v "konecna_cena"
 -- konecna cena neobsahuje poplatek za pobyt, ktery by byl dopocitan pri placeni pobytu
-SELECT * FROM OBJEDNAVKA;
+--SELECT * FROM OBJEDNAVKA;
 
 -- predvedeni odstraneni vykonane sluzby - konecna cena u objenavky se aktualizuje
 DELETE FROM VYKONANA_SLUZBA WHERE id = 2;
-SELECT * FROM OBJEDNAVKA;
-SELECT * FROM VYKONANA_SLUZBA;
+--SELECT * FROM OBJEDNAVKA;
+--SELECT * FROM VYKONANA_SLUZBA;
 
-SELECT * FROM OBJEDNAVKA LEFT JOIN HOST ON OBJEDNAVKA.host_id = HOST.id WHERE OBJEDNAVKA.zaplaceno IS NULL;
+--SELECT * FROM OBJEDNAVKA LEFT JOIN HOST ON OBJEDNAVKA.host_id = HOST.id WHERE OBJEDNAVKA.zaplaceno IS NULL;
 --vráti hosťov a objednávku, ktorý ešte nezaplatili objednávku
 
-SELECT REZERVACE.rezervace_od, REZERVACE.rezervace_do, REZERVACE.nastoueni, REZERVACE.odhlaseni, REZERVACE.pocet_osob, POKOJ.kapacita, POKOJ.popis FROM REZERVACE INNER JOIN POKOJ ON REZERVACE.pokoj_id = POKOJ.id;
+--SELECT REZERVACE.rezervace_od, REZERVACE.rezervace_do, REZERVACE.nastoueni, REZERVACE.odhlaseni, REZERVACE.pocet_osob, POKOJ.kapacita, POKOJ.popis FROM REZERVACE INNER JOIN POKOJ ON REZERVACE.pokoj_id = POKOJ.id;
 --vrati info ku rezervacii, aky typ izba, kolko osob atd
 
-SELECT * FROM VYKONANA_SLUZBA LEFT JOIN SLUZBA ON VYKONANA_SLUZBA.sluzba_id = SLUZBA.id LEFT JOIN OBJEDNAVKA ON VYKONANA_SLUZBA.objednavka_id = OBJEDNAVKA.vs;
+--SELECT * FROM VYKONANA_SLUZBA LEFT JOIN SLUZBA ON VYKONANA_SLUZBA.sluzba_id = SLUZBA.id LEFT JOIN OBJEDNAVKA ON VYKONANA_SLUZBA.objednavka_id = OBJEDNAVKA.vs;
 --vráti ku objednávke vykonané služby
 
-SELECT AVG(pocet_osob) as priemerny_pocet_osob FROM REZERVACE GROUP BY pokoj_id;
+--SELECT AVG(pocet_osob) as priemerny_pocet_osob FROM REZERVACE GROUP BY pokoj_id;
 --vrati priemerny pocet osob pre izby
 
-SELECT sluzba_id, COUNT(objednavka_id) as pocet_objednani FROM VYKONANA_SLUZBA GROUP BY sluzba_id;
+--SELECT sluzba_id, COUNT(objednavka_id) as pocet_objednani FROM VYKONANA_SLUZBA GROUP BY sluzba_id;
 --pocet objednani danej sluzby
 
-SELECT * FROM REZERVACE WHERE EXISTS (SELECT * FROM POKOJ WHERE REZERVACE.pokoj_id = POKOJ.id);
+--SELECT * FROM REZERVACE WHERE EXISTS (SELECT * FROM POKOJ WHERE REZERVACE.pokoj_id = POKOJ.id);
 -- test na neprazdnost tabulky s korelovanym poddotazom, vypise rezervacky
 
-SELECT * FROM OBJEDNAVKA WHERE vs IN (SELECT objednavka_id FROM VYKONANA_SLUZBA);
+--SELECT * FROM OBJEDNAVKA WHERE vs IN (SELECT objednavka_id FROM VYKONANA_SLUZBA);
 --objednávky, ktoré si objednali doplnkove služby
 
 ------PRAVA-------
